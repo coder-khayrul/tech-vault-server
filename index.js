@@ -52,6 +52,16 @@ async function run() {
             res.send(result)
         })
 
+         app.get("/tranding-products", async (req, res) => {
+
+            const trandingProducts = await productCollection
+                .find({})
+                .sort({ upvotes: -1 }) 
+                .limit(6)
+                .toArray();
+
+            res.json(trandingProducts);
+        })
         app.get("/featured-products", async (req, res) => {
 
             const featuredProducts = await productCollection

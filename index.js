@@ -28,6 +28,23 @@ async function run() {
 
         // await client.connect();
         const productCollection = client.db("app_orbitdb").collection("products");
+        const reviewCollection = client.db("app_orbitdb").collection("reviews");
+
+
+
+        app.post("/reviews", async (req, res) => {
+            const newReview = req.body;
+            newReview.timestamp = new Date().toISOString();
+            const result = await reviewCollection.insertOne(newReview)
+            res.send(result)
+        })
+        app.get("/reviews/:id", async (req, res) => {
+            const id = req.params.id;
+            const query = { productId: id };
+            const cursor = reviewCollection.find(query)
+            const result = await cursor.toArray();
+            res.send(result)
+        })
         app.get("/products/:id", async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };
@@ -35,7 +52,6 @@ async function run() {
             res.send(result)
         })
         app.post("/products", async (req, res) => {
-            console.log(req.body)
             const newProduct = req.body;
             const result = await productCollection.insertOne(newProduct)
             res.send(result)
@@ -52,11 +68,11 @@ async function run() {
             res.send(result)
         })
 
-         app.get("/tranding-products", async (req, res) => {
+        app.get("/tranding-products", async (req, res) => {
 
             const trandingProducts = await productCollection
                 .find({})
-                .sort({ upvotes: -1 }) 
+                .sort({ upvotes: -1 })
                 .limit(6)
                 .toArray();
 
@@ -66,15 +82,16 @@ async function run() {
 
             const featuredProducts = await productCollection
                 .find({})
-                .sort({ timestamp: -1 }) 
+                .sort({ timestamp: -1 })
                 .limit(4)
                 .toArray();
 
             res.json(featuredProducts);
         })
+
         app.patch("/products/:id", async (req, res) => {
             const id = req.params.id;
-            const { userEmail } = req.body; 
+            const { userEmail } = req.body;
 
             const product = await productCollection.findOne({ _id: new ObjectId(id) });
 
@@ -86,7 +103,7 @@ async function run() {
 
             const updatedDoc = {
                 $inc: { upvotes: 1 },
-                $addToSet: { voters: userEmail } 
+                $addToSet: { voters: userEmail }
             };
 
             const result = await productCollection.updateOne(

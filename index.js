@@ -14,7 +14,7 @@ app.use(express.json())
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.pvi1q6h.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -40,16 +40,6 @@ async function run() {
             const result = await productCollection.insertOne(newProduct)
             res.send(result)
         })
-        app.get("/featured-products", async (req, res) => {
-
-            const featuredProducts = await productCollection
-                .find({})
-                .sort({ timestamp: -1 }) 
-                .limit(4)
-                .toArray();
-
-            res.json(featuredProducts);
-        })
         app.get("/products", async (req, res) => {
             const search = req.query.search;
             const query = {};
@@ -62,10 +52,19 @@ async function run() {
             res.send(result)
         })
 
+        app.get("/featured-products", async (req, res) => {
 
+            const featuredProducts = await productCollection
+                .find({})
+                .sort({ timestamp: -1 }) 
+                .limit(4)
+                .toArray();
+
+            res.json(featuredProducts);
+        })
         app.patch("/products/:id", async (req, res) => {
             const id = req.params.id;
-            const { userEmail } = req.body; // get email from frontend
+            const { userEmail } = req.body; 
 
             const product = await productCollection.findOne({ _id: new ObjectId(id) });
 
@@ -77,7 +76,7 @@ async function run() {
 
             const updatedDoc = {
                 $inc: { upvotes: 1 },
-                $addToSet: { voters: userEmail } // prevent duplicates
+                $addToSet: { voters: userEmail } 
             };
 
             const result = await productCollection.updateOne(

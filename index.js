@@ -45,6 +45,28 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result)
         })
+        app.get("/products/users/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { ownerEmail: email };
+            const cursor = productCollection.find(query);
+            const result = await cursor.toArray();
+            res.send(result);
+        });
+
+        app.patch("/products/report/:id", async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const update = {
+                $set: {
+                    reported: true,
+                    reportTimestamp: new Date().toISOString(),
+                },
+            };
+
+            const result = await productCollection.updateOne(filter, update);
+            res.send(result);
+        });
+
         app.get("/products/:id", async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) };

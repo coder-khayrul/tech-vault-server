@@ -64,11 +64,6 @@ async function run() {
             };
            
             const result = await productCollection.updateOne(filter, update);
-            //  if (result.modifiedCount > 0) {
-            //     res.send({ success: true,modifiedCount: result.modifiedCount, message: "Reported successfully" });
-            // } else {
-            //     res.status(400).send({ success: false, message: "You already reported this product" });
-            // }
             res.send(result)
         });
 

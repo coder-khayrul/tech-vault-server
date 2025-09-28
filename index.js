@@ -62,9 +62,14 @@ async function run() {
                     reportTimestamp: new Date().toISOString(),
                 },
             };
-
+           
             const result = await productCollection.updateOne(filter, update);
-            res.send(result);
+            //  if (result.modifiedCount > 0) {
+            //     res.send({ success: true,modifiedCount: result.modifiedCount, message: "Reported successfully" });
+            // } else {
+            //     res.status(400).send({ success: false, message: "You already reported this product" });
+            // }
+            res.send(result)
         });
 
         app.get("/products/:id", async (req, res) => {

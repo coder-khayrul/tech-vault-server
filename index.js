@@ -89,7 +89,25 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result)
         })
+         app.put("/products/:id", async(req,res) =>{
+            const id = req.params.id
+            const filter = {_id: new ObjectId(id)}
+            const options = {upsert: true}
+            const updateProduct= req.body;
+            const updatedDoc = {
+                $set: updateProduct
+            }
+            const result = await productCollection.updateOne(filter, updatedDoc)
+            res.send(result)
+            
 
+        })
+        app.delete("/products/:id", async(req,res)=> {
+            const id = req.params.id;
+            const query = {_id: new ObjectId(id)};
+            const result = await productCollection.deleteOne(query);
+            res.send(result);
+        })
         app.get("/tranding-products", async (req, res) => {
 
             const trandingProducts = await productCollection

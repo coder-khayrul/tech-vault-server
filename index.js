@@ -33,6 +33,7 @@ async function run() {
         // await client.connect();
         const productCollection = client.db("app_orbitdb").collection("products");
         const reviewCollection = client.db("app_orbitdb").collection("reviews");
+        const userCollection = client.db("app_orbitdb").collection("users");
 
 
 
@@ -180,6 +181,9 @@ async function run() {
 
                 if (paymentIntent.status === 'succeeded') {
                     res.json({ success: true, clientSecret: paymentIntent.client_secret });
+                    const newPayment = req.body;
+                    const result = await userCollection.insertOne(newPayment)
+                    res.send(result)
                 } else {
                     res.json({ success: false, error: 'Payment failed' });
                 }
@@ -188,6 +192,16 @@ async function run() {
             }
         });
 
+        app.get("/api/user/:email", async (req, res) => {
+            try {
+                const user = await userCollection.findOne({ userEmail: req.params.email });
+                if (!user) return res.status(404).json({ error: "User not found" });
+                res.json(user);
+
+            } catch (error) {
+                res.status(500).json({ error: error.message });
+            }
+        });
 
         // await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");

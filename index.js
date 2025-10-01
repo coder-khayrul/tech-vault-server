@@ -1,9 +1,13 @@
 require('dotenv').config()
 const express = require('express');
+
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const { authenticateUser } = require('./middlewares/authenticateUser');
 const app = express()
+const Stripe = require("stripe");
+const stripe = new Stripe(process.env.PAYMENT_KEY);
+
 const port = process.env.PORT || 3000
 
 app.use(cors())
@@ -62,7 +66,7 @@ async function run() {
                     reportTimestamp: new Date().toISOString(),
                 },
             };
-           
+
             const result = await productCollection.updateOne(filter, update);
             res.send(result)
         });
@@ -89,22 +93,22 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result)
         })
-         app.put("/products/:id", async(req,res) =>{
+        app.put("/products/:id", async (req, res) => {
             const id = req.params.id
-            const filter = {_id: new ObjectId(id)}
-            const options = {upsert: true}
-            const updateProduct= req.body;
+            const filter = { _id: new ObjectId(id) }
+            const options = { upsert: true }
+            const updateProduct = req.body;
             const updatedDoc = {
                 $set: updateProduct
             }
-            const result = await productCollection.updateOne(filter, updatedDoc)
+            const result = await productCollection.updateOne(filter, updatedDoc, options)
             res.send(result)
-            
+
 
         })
-        app.delete("/products/:id", async(req,res)=> {
+        app.delete("/products/:id", async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const result = await productCollection.deleteOne(query);
             res.send(result);
         })
@@ -154,6 +158,35 @@ async function run() {
             res.send(result);
         });
 
+
+        //********Payment system**** */
+        app.post('/api/payment', async (req, res) => {
+            try {
+                const { paymentMethodId, amount, userEmail } = req.body;
+
+                // Create PaymentIntent
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount,
+                    receipt_email: userEmail,
+                    currency: 'usd',
+                    payment_method: paymentMethodId,
+                    automatic_payment_methods: {
+                        enabled: true,
+                        allow_redirects: 'never'
+                    },
+                    confirm: true
+
+                });
+
+                if (paymentIntent.status === 'succeeded') {
+                    res.json({ success: true, clientSecret: paymentIntent.client_secret });
+                } else {
+                    res.json({ success: false, error: 'Payment failed' });
+                }
+            } catch (error) {
+                res.json({ success: false, error: error.message });
+            }
+        });
 
 
         // await client.db("admin").command({ ping: 1 });

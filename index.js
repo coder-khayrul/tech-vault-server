@@ -7,7 +7,7 @@ const { authenticateUser } = require('./middlewares/authenticateUser');
 const app = express()
 const Stripe = require("stripe");
 const stripe = new Stripe(process.env.PAYMENT_KEY);
-
+const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 3000
 
 app.use(cors())
@@ -34,8 +34,109 @@ async function run() {
         const productCollection = client.db("app_orbitdb").collection("products");
         const reviewCollection = client.db("app_orbitdb").collection("reviews");
         const userCollection = client.db("app_orbitdb").collection("users");
+        const paymentCollection = client.db("app_orbitdb").collection("payments");
+        /****middlewares for verify admin  */
+        const verifyRole = (roles) => {
+            return (req, res, next) => {
+                if (!roles.includes(req.user.role)) {
+                    return res.status(403).json({ message: "Forbidden: Insufficient role" });
+                }
+                next();
+            };
+        };
+
+        /***********middleware for verify jwt */
+        const verifyJWT = (req, res, next) => {
+            const authHeader = req.headers.authorization;
+            if (!authHeader) {
+                return res.status(401).json({ message: "Unauthorized: No token" });
+            }
+
+            const token = authHeader.split(" ")[1];
+
+            jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+                if (err) {
+                    return res.status(403).json({ message: "Forbidden: Invalid token" });
+                }
+                req.user = decoded; // store decoded user info for later use
+                next();
+            });
+        };
 
 
+
+        /**** JWT token route */
+        app.post("/jwt", async (req, res) => {
+            try {
+                const { email } = req.body;
+                if (!email) {
+                    return res.status(400).json({ message: "Email is required" });
+                }
+
+                // Check if user already exists
+                const existingUser = await userCollection.findOne({ email });
+
+                const update = {
+                    $set: {
+                        email,
+                        role: existingUser?.role || "user", // 👈 Preserve existing role
+                        last_login: new Date().toISOString(),
+                    },
+                };
+                const options = { upsert: true };
+
+                await userCollection.updateOne({ email }, update, options);
+
+                // Create JWT with only safe payload
+                const token = jwt.sign(
+                    { email },
+                    process.env.ACCESS_TOKEN_SECRET,
+                    { expiresIn: "24h" }
+                );
+
+                res.send({ token });
+            } catch (err) {
+                console.error("JWT error:", err);
+                res.status(500).json({ message: "Internal Server Error" });
+            }
+        });
+
+
+
+        app.get("/dashboard/user", verifyJWT, verifyRole(["user", "moderator", "admin"]), (req, res) => {
+            res.json({ message: "Welcome User Dashboard", user: req.user });
+        });
+
+        app.get("/dashboard/moderator", verifyJWT, verifyRole(["moderator", "admin"]), (req, res) => {
+            res.json({ message: "Welcome Moderator Dashboard", user: req.user });
+        });
+
+        app.get("/dashboard/admin", verifyJWT, verifyRole(["admin"]), (req, res) => {
+            res.json({ message: "Welcome Admin Dashboard", user: req.user });
+        });
+        /**** Profile route */
+        app.get("/me", verifyJWT, async (req, res) => {
+            try {
+                const userEmail = req.user.email;
+                console.log(userEmail)
+                const user = await userCollection.findOne({ email: userEmail });
+
+                if (!user) {
+                    return res.status(404).json({ message: "User not found" });
+                }
+
+                const profile = {
+                    email: user.email,
+                    role: user.role || "user"
+                };
+
+                res.json(profile);
+            } catch (err) {
+                console.error("Profile fetch error:", err);
+                res.status(500).json({ message: "Internal Server Error" });
+            }
+        });
+        // ====================*****************=================
 
         app.post("/reviews", async (req, res) => {
             const newReview = req.body;
@@ -182,7 +283,7 @@ async function run() {
                 if (paymentIntent.status === 'succeeded') {
                     res.json({ success: true, clientSecret: paymentIntent.client_secret });
                     const newPayment = req.body;
-                    const result = await userCollection.insertOne(newPayment)
+                    const result = await paymentCollection.insertOne(newPayment)
                     res.send(result)
                 } else {
                     res.json({ success: false, error: 'Payment failed' });
@@ -194,7 +295,7 @@ async function run() {
 
         app.get("/api/user/:email", async (req, res) => {
             try {
-                const user = await userCollection.findOne({ userEmail: req.params.email });
+                const user = await paymentCollection.findOne({ userEmail: req.params.email });
                 if (!user) return res.status(404).json({ error: "User not found" });
                 res.json(user);
 

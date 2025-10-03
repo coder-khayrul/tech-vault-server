@@ -237,7 +237,7 @@ async function run() {
             res.json({ success: true, result });
         });
 
-     
+
         app.put("/products/:id/reject", async (req, res) => {
             const { id } = req.params;
             const result = await productCollection.updateOne(
@@ -247,7 +247,7 @@ async function run() {
             res.json({ success: true, result });
         });
 
-      
+
         app.put("/products/:id/feature", async (req, res) => {
             const { id } = req.params;
             const result = await productCollection.updateOne(
@@ -263,7 +263,13 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result);
         });
+        app.get("/products/reported", async (req, res) => {
+            const query = { reported: true };
 
+            const cursor = productCollection.find(query)
+            const result = await cursor.toArray();
+            res.send(result)
+        })
         app.patch("/products/report/:id", async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };

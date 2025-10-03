@@ -179,7 +179,7 @@ async function run() {
         app.put("/coupons/:id", async (req, res) => {
 
             const id = req.params.id;
-            const { _id, ...updatedData } = req.body; 
+            const { _id, ...updatedData } = req.body;
 
             const result = await couponsCollection.updateOne(
                 { _id: new ObjectId(id) },
@@ -221,7 +221,41 @@ async function run() {
             }
         });
 
+        app.get("/products/pending", async (req, res) => {
+            const query = { status: "pending" };
 
+            const cursor = productCollection.find(query)
+            const result = await cursor.toArray();
+            res.send(result)
+        })
+        app.put("/products/:id/accept", async (req, res) => {
+            const { id } = req.params;
+            const result = await productCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: { status: "accepted" } }
+            );
+            res.json({ success: true, result });
+        });
+
+     
+        app.put("/products/:id/reject", async (req, res) => {
+            const { id } = req.params;
+            const result = await productCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: { status: "rejected" } }
+            );
+            res.json({ success: true, result });
+        });
+
+      
+        app.put("/products/:id/feature", async (req, res) => {
+            const { id } = req.params;
+            const result = await productCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: { featured: true } }
+            );
+            res.json({ success: true, result });
+        });
         app.get("/products/users/:email", async (req, res) => {
             const email = req.params.email;
             const query = { ownerEmail: email };

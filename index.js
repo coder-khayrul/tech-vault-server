@@ -151,6 +151,24 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result)
         })
+        app.get("/reviews", async (req, res) => {
+            try {
+                const reviews = await reviewCollection.find().toArray();
+                res.json(reviews);
+            } catch (error) {
+                console.error("Error fetching reviews:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+        app.get("/users", async (req, res) => {
+            try {
+                const users = await userCollection.find().toArray();
+                res.json(users);
+            } catch (error) {
+                console.error("Error fetching users:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
         app.get("/products/users/:email", async (req, res) => {
             const email = req.params.email;
             const query = { ownerEmail: email };

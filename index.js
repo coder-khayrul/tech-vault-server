@@ -35,6 +35,7 @@ async function run() {
         const reviewCollection = client.db("app_orbitdb").collection("reviews");
         const userCollection = client.db("app_orbitdb").collection("users");
         const paymentCollection = client.db("app_orbitdb").collection("payments");
+        const couponsCollection = client.db("app_orbitdb").collection("coupons")
         /****middlewares for verify admin  */
         const verifyRole = (roles) => {
             return (req, res, next) => {
@@ -58,7 +59,7 @@ async function run() {
                 if (err) {
                     return res.status(403).json({ message: "Forbidden: Invalid token" });
                 }
-                req.user = decoded; 
+                req.user = decoded;
                 next();
             });
         };
@@ -163,7 +164,40 @@ async function run() {
             }
         });
         // ====================*****************=================
+        app.get("/coupons", async (req, res) => {
+            const coupons = await couponsCollection.find().toArray();
+            res.json(coupons);
+        });
+        app.post("/coupons", async (req, res) => {
 
+            const newCoupon = req.body;
+            const result = await couponsCollection.insertOne(newCoupon);
+            res.json({ success: true, insertedId: result.insertedId });
+
+        });
+
+        app.put("/coupons/:id", async (req, res) => {
+
+            const id = req.params.id;
+            const { _id, ...updatedData } = req.body; 
+
+            const result = await couponsCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: updatedData }
+            );
+
+            res.json({ success: true, modifiedCount: result.modifiedCount });
+
+        });
+
+
+        app.delete("/coupons/:id", async (req, res) => {
+
+            const id = req.params.id;
+            const result = await couponsCollection.deleteOne({ _id: new ObjectId(id) });
+            res.json({ success: true, deletedCount: result.deletedCount });
+
+        });
         app.post("/reviews", async (req, res) => {
             const newReview = req.body;
             newReview.timestamp = new Date().toISOString();

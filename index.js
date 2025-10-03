@@ -58,7 +58,7 @@ async function run() {
                 if (err) {
                     return res.status(403).json({ message: "Forbidden: Invalid token" });
                 }
-                req.user = decoded; // store decoded user info for later use
+                req.user = decoded; 
                 next();
             });
         };
@@ -68,18 +68,18 @@ async function run() {
         /**** JWT token route */
         app.post("/jwt", async (req, res) => {
             try {
-                const { email } = req.body;
-                if (!email) {
-                    return res.status(400).json({ message: "Email is required" });
+                const { email, name } = req.body;
+                if (!email || !name) {
+                    return res.status(400).json({ message: "Email and name are required" });
                 }
 
-                // Check if user already exists
                 const existingUser = await userCollection.findOne({ email });
 
                 const update = {
                     $set: {
                         email,
-                        role: existingUser?.role || "user", // 👈 Preserve existing role
+                        name,
+                        role: existingUser?.role || "user",
                         last_login: new Date().toISOString(),
                     },
                 };
@@ -87,12 +87,13 @@ async function run() {
 
                 await userCollection.updateOne({ email }, update, options);
 
-                // Create JWT with only safe payload
+
                 const token = jwt.sign(
-                    { email },
+                    { email, role: existingUser?.role || "user" },
                     process.env.ACCESS_TOKEN_SECRET,
                     { expiresIn: "24h" }
                 );
+
 
                 res.send({ token });
             } catch (err) {
@@ -102,18 +103,6 @@ async function run() {
         });
 
 
-
-        app.get("/dashboard/user", verifyJWT, verifyRole(["user", "moderator", "admin"]), (req, res) => {
-            res.json({ message: "Welcome User Dashboard", user: req.user });
-        });
-
-        app.get("/dashboard/moderator", verifyJWT, verifyRole(["moderator", "admin"]), (req, res) => {
-            res.json({ message: "Welcome Moderator Dashboard", user: req.user });
-        });
-
-        app.get("/dashboard/admin", verifyJWT, verifyRole(["admin"]), (req, res) => {
-            res.json({ message: "Welcome Admin Dashboard", user: req.user });
-        });
         /**** Profile route */
         app.get("/me", verifyJWT, async (req, res) => {
             try {
@@ -127,13 +116,50 @@ async function run() {
 
                 const profile = {
                     email: user.email,
-                    role: user.role || "user"
+                    name: user.name || "",
+                    role: user.role || "user",
+                    last_login: new Date().toISOString(),
                 };
 
                 res.json(profile);
             } catch (err) {
                 console.error("Profile fetch error:", err);
                 res.status(500).json({ message: "Internal Server Error" });
+            }
+        });
+
+        app.get("/users", verifyJWT, verifyRole(["admin"]), async (req, res) => {
+            try {
+                const users = await userCollection.find().toArray();
+                res.json(users);
+            } catch (error) {
+                console.error("Error fetching users:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        });
+
+        app.patch("/users/:id", async (req, res) => {
+            try {
+                const userId = req.params.id;
+                const { role } = req.body;
+
+                if (!role) {
+                    return res.status(400).json({ error: "Role is required" });
+                }
+
+                const result = await userCollection.updateOne(
+                    { _id: new ObjectId(userId) },
+                    { $set: { role } }
+                );
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).json({ error: "User not found" });
+                }
+
+                res.json({ message: "User role updated successfully" });
+            } catch (error) {
+                console.error("Error updating user role:", error);
+                res.status(500).json({ error: "Internal server error" });
             }
         });
         // ====================*****************=================
@@ -160,15 +186,8 @@ async function run() {
                 res.status(500).json({ error: "Internal Server Error" });
             }
         });
-        app.get("/users", async (req, res) => {
-            try {
-                const users = await userCollection.find().toArray();
-                res.json(users);
-            } catch (error) {
-                console.error("Error fetching users:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        });
+
+
         app.get("/products/users/:email", async (req, res) => {
             const email = req.params.email;
             const query = { ownerEmail: email };
@@ -202,15 +221,15 @@ async function run() {
             const result = await productCollection.insertOne(newProduct)
             res.send(result)
         })
-         app.get("/all-products/", async (req, res) => {
-            const query = { };
+        app.get("/all-products/", async (req, res) => {
+            const query = {};
             const cursor = productCollection.find(query);
             const result = await cursor.toArray();
             res.send(result);
         });
         app.get("/products", async (req, res) => {
             const search = req.query.search;
-            const query = {status: "accepted"};
+            const query = { status: "accepted" };
 
             if (search) {
                 query.productName = { $regex: search, $options: "i" };

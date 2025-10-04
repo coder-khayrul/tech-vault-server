@@ -344,7 +344,7 @@ async function run() {
         app.get("/featured-products", async (req, res) => {
 
             const featuredProducts = await productCollection
-                .find({ isFeatured: true})
+                .find({ isFeatured: true })
                 .sort({ timestamp: -1 })
                 .limit(4)
                 .toArray();
@@ -381,9 +381,9 @@ async function run() {
         //********Payment system**** */
         app.post('/api/payment', async (req, res) => {
             try {
-                const { paymentMethodId, amount, userEmail } = req.body;
+                const { paymentMethodId, amount, userEmail, couponCode } = req.body;
 
-                // Create PaymentIntent
+             
                 const paymentIntent = await stripe.paymentIntents.create({
                     amount,
                     receipt_email: userEmail,
@@ -394,20 +394,49 @@ async function run() {
                         allow_redirects: 'never'
                     },
                     confirm: true
-
                 });
 
                 if (paymentIntent.status === 'succeeded') {
-                    res.json({ success: true, clientSecret: paymentIntent.client_secret });
-                    const newPayment = req.body;
-                    const result = await paymentCollection.insertOne(newPayment)
-                    res.send(result)
+                  
+                    const newPayment = {
+                        paymentMethodId,
+                        amount,
+                        userEmail,
+                        couponCode: couponCode || null,
+                        createdAt: new Date(),
+                    };
+
+                    const result = await paymentCollection.insertOne(newPayment);
+
+                    if (couponCode) {
+                        await couponsCollection.updateOne(
+                            { code: couponCode },
+                            { $inc: { usagesCount: 1 } } 
+                        );
+                    }
+
+                    return res.json({
+                        success: true,
+                        clientSecret: paymentIntent.client_secret,
+                        payment: result,
+                    });
                 } else {
-                    res.json({ success: false, error: 'Payment failed' });
+                    return res.json({ success: false, error: 'Payment failed' });
                 }
             } catch (error) {
+                console.error(error);
                 res.json({ success: false, error: error.message });
             }
+        });
+
+        app.post("/api/coupons/validate", async (req, res) => {
+            const { code } = req.body;
+            const coupon = await couponsCollection.findOne({ code });
+
+            if (!coupon) {
+                return res.json({ valid: false });
+            }
+            return res.json({ valid: true, discount: coupon.discount });
         });
 
         app.get("/api/user/:email", async (req, res) => {

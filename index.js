@@ -252,7 +252,7 @@ async function run() {
             const { id } = req.params;
             const result = await productCollection.updateOne(
                 { _id: new ObjectId(id) },
-                { $set: { featured: true } }
+                { $set: { isFeatured: true } }
             );
             res.json({ success: true, result });
         });
@@ -344,7 +344,7 @@ async function run() {
         app.get("/featured-products", async (req, res) => {
 
             const featuredProducts = await productCollection
-                .find({})
+                .find({ isFeatured: true})
                 .sort({ timestamp: -1 })
                 .limit(4)
                 .toArray();
